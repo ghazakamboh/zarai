@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "Scan": {
+      "title": "Agricultural Scan",
+      "description": "Result of a crop health analysis",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "analysis": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "analysis", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/scans/{scanId}": {
+      "schema": "Scan",
+      "description": "Collection of agricultural diagnostic scans"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "ZAR'AI (زرعی)",
+  "description": "AI-powered agricultural diagnostic tool for Pakistani farmers. Analyze crop health and chat with an expert in Roman Urdu.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

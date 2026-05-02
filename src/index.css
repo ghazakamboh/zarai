@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-truck-green: #2a9d8f;
+  --color-truck-yellow: #e9c46a;
+  --color-truck-orange: #f4a261;
+  --color-truck-red: #e63946;
+  --color-truck-dark: #0a0a0a;
+  
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-urdu: "Noto Sans Arabic", serif;
+}
+
+@layer base {
+  body {
+    @apply bg-truck-dark text-white font-sans;
+  }
+}
+
+.urdu-text {
+  font-family: var(--font-urdu);
+  direction: rtl;
+}
+
+.truck-art-border {
+  border: 4px solid transparent;
+  border-image: linear-gradient(to right, #2a9d8f, #e9c46a, #f4a261, #e63946) 1;
+}
+
+.glass-morphism {
+  @apply bg-black/40 backdrop-blur-xl border border-white/10;
+}
+
