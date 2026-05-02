@@ -1,45 +1,55 @@
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const getAI = () => {
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) throw new Error("VITE_GEMINI_API_KEY missing");
+  return new GoogleGenAI({ apiKey: key });
+};
 
 export async function analyzeAgriculturalImage(base64: string) {
-  // Remove data:image/jpeg;base64, prefix if present
-  const base64String = base64.includes(',') ? base64.split(',')[1] : base64;
-
-  // RULE 10: Exact structure for multimodal call
-  // @ts-ignore
-  const response = await (ai as any).models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      role: "user",
-      parts: [
-        { inlineData: { data: base64String, mimeType: "image/jpeg" } },
-        { text: "You are an expert Pakistani agricultural advisor. Analyze this crop/field image and give a SHORT, clean response. No markdown, no ### headers, no ** bold symbols. Write in plain text only. Cover: crop type, health status, moisture condition, and one key action needed. Keep total response under 150 words paragraph in Roman Urdu." }
-      ]
-    }]
-  });
-  
-  // RULE 11: response.text is a property
-  return response.text;
+  try {
+    const ai = getAI();
+    const base64String = base64.includes(',') ? base64.split(',')[1] : base64;
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { data: base64String, mimeType: "image/jpeg" } },
+          { text: "You are an expert agricultural consultant for Pakistani farmers. Analyze this crop/field image. Identify: 1) Crop type 2) Visible diseases or pest damage 3) Soil and moisture condition 4) Immediate action required. Provide advice in plain text only, no markdown symbols, no headers with #, no bold with **. Write naturally. Give one paragraph in English then one paragraph in Roman Urdu." }
+        ]
+      }]
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Gemini Analysis Error:", error);
+    throw error;
+  }
 }
 
-export async function chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], userMessage: string, scanContext: string) {
-  // @ts-ignore
-  const response = await (ai as any).models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: `System instruction: You are Zar'ai Mahir, a friendly Pakistani farming expert who talks like an older brother. STRICT RULES: No markdown. No ### headers. No ** symbols. No bullet points. Write in plain conversational text only. Keep replies short — maximum 4 sentences. Match the user's language exactly. If they write Roman Urdu, reply only in Roman Urdu. If English, reply in English. Never switch languages mid-reply. Never mention that you are reading a report or referencing context. Just talk naturally like a friend.` }]
-      },
-      ...history,
-      {
-        role: "user",
-        parts: [{ text: userMessage }]
+export async function chatWithExpert(
+  history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+  userMessage: string,
+  scanContext?: string
+) {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [
+        ...history,
+        { role: "user", parts: [{ text: userMessage }] }
+      ],
+      config: {
+        systemInstruction: `You are Zar'ai Mahir, a friendly Pakistani farming expert. 
+        ${scanContext ? `You have analyzed this crop: ${scanContext}` : 'Give general farming advice.'}
+        Rules: Reply in same language as user. Roman Urdu for Roman Urdu. 
+        Max 3 sentences. No markdown. No bullet points. Talk like a helpful older brother.`
       }
-    ]
-  });
-  
-  return response.text;
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Chat Error:", error);
+    return "Maafi bhai, thodi der mein dobara poochein.";
+  }
 }
