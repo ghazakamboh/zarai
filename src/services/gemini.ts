@@ -1,22 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Internal helper for lazy initialization
-let genAIInstance: GoogleGenAI | null = null;
-
-function getGenAI() {
-  if (!genAIInstance) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    console.log("API KEY present:", !!apiKey, "value starts with:", apiKey?.substring(0, 8));
-    if (!apiKey) {
-      throw new Error("VITE_GEMINI_API_KEY not set in environment variables.");
-    }
-    genAIInstance = new GoogleGenAI({ apiKey });
-  }
-  return genAIInstance;
-}
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export async function analyzeAgriculturalImage(base64: string) {
-  const ai = getGenAI();
   // Remove data:image/jpeg;base64, prefix if present
   const base64String = base64.includes(',') ? base64.split(',')[1] : base64;
 
@@ -38,7 +25,6 @@ export async function analyzeAgriculturalImage(base64: string) {
 }
 
 export async function chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], userMessage: string, scanContext: string) {
-  const ai = getGenAI();
   // @ts-ignore
   const response = await (ai as any).models.generateContent({
     model: "gemini-3-flash-preview",
