@@ -1,18 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const API_KEY = "AIzaSyBaXrwyvYrgl5AificQRUGw03ze9DBKG_E";
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export async function analyzeAgriculturalImage(base64: string) {
   try {
     const base64String = base64.includes(',') ? base64.split(',')[1] : base64;
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: [{
         role: "user",
         parts: [
           { inlineData: { data: base64String, mimeType: "image/jpeg" } },
-          { text: "You are an expert agricultural consultant for Pakistani farmers. Analyze this crop/field image.\n\nFirst, provide these exact technical fields:\nCROP: [Type]\nHEALTH: [0-100]\nMOISTURE: [Dry/Optimal/Wet]\nDISEASE: [Yes/No]\nACTION: [Specific Action]\n\nThen, provide a natural analysis in plain text only, no markdown symbols, no headers. One paragraph in English and then one paragraph in Roman Urdu. Be as specific as possible based on what you see in the image." }
+          { text: "You are an expert agricultural consultant for Pakistani farmers. Analyze this crop/field image.\n\nFirst, provide these exact technical fields for the dashboard:\nCROP: [Type]\nHEALTH: [0-100]\nMOISTURE: [Dry/Optimal/Wet]\nDISEASE: [Yes/No]\nACTION: [Specific Action]\n\nThen, provide a natural analysis in plain text only, no markdown, no symbols. One paragraph English then one paragraph Roman Urdu. Be as specific as possible based on the visual evidence." }
         ]
       }]
     });
@@ -30,7 +30,7 @@ export async function chatWithExpert(
 ) {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: [
         ...history,
         { role: "user", parts: [{ text: userMessage }] }
