@@ -1,10 +1,8 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY . .
-ARG VITE_GEMINI_API_KEY
-ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
 RUN npm run build
 
 FROM nginx:alpine
