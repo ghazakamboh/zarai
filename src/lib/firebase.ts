@@ -18,7 +18,32 @@ export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+// Guard against multiple concurrent sign-in requests which cause
+// "auth/cancelled-popup-request" and "INTERNAL ASSERTION FAILED"
+let signInProgress: Promise<any> | null = null;
+
+export const signInWithGoogle = async () => {
+  if (signInProgress) {
+    return signInProgress;
+  }
+
+  signInProgress = signInWithPopup(auth, googleProvider)
+    .then((result) => {
+      signInProgress = null;
+      return result;
+    })
+    .catch((error) => {
+      signInProgress = null;
+      // Handle "auth/cancelled-popup-request" silently or with custom logic if needed
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        console.warn('Sign-in cancelled or closed by user.');
+      } else {
+        throw error;
+      }
+    });
+
+  return signInProgress;
+};
 
 export enum OperationType {
   CREATE = 'create',

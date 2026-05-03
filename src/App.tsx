@@ -55,6 +55,7 @@ export default function App() {
 
   // Chat - Global Advisor Orb
   const [showOrbChat, setShowOrbChat] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [orbChatMessages, setOrbChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [isOrbTyping, setIsOrbTyping] = useState(false);
   const [orbInput, setOrbInput] = useState('');
@@ -592,16 +593,39 @@ RULES:
                   <span className="hidden md:inline">Pichle Scans / پچھلے اسکین</span>
                 </button>
                 <button 
+                  disabled={isAuthLoading}
                   onClick={async () => {
-                    if (user) {
-                      auth.signOut();
-                    } else {
-                      signInWithGoogle().catch(console.error);
+                    if (isAuthLoading) return;
+                    setIsAuthLoading(true);
+                    try {
+                      if (user) {
+                        await auth.signOut();
+                      } else {
+                        await signInWithGoogle();
+                      }
+                    } catch (err: any) {
+                      console.error("Auth error:", err);
+                      // Network request failed or other issues
+                      if (err.code === 'auth/network-request-failed') {
+                        alert("Internet ka masla lag raha hai. Dobara koshish karen.");
+                      }
+                    } finally {
+                      setIsAuthLoading(false);
                     }
                   }}
-                  className="bg-white/5 px-4 py-2 rounded-lg text-sm font-bold border border-white/10 hover:bg-white/10 transition-colors"
+                  className={cn(
+                    "bg-white/5 px-4 py-2 rounded-lg text-sm font-bold border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-2",
+                    isAuthLoading && "opacity-50 cursor-not-allowed"
+                  )}
                 >
-                  {user ? 'LOGOUT' : 'LOGIN'}
+                  {isAuthLoading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={14} />
+                      {user ? 'LOGGING OUT...' : 'LOGGING IN...'}
+                    </>
+                  ) : (
+                    user ? 'LOGOUT' : 'LOGIN'
+                  )}
                 </button>
               </div>
             </header>
