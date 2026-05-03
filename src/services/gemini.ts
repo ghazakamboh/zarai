@@ -7,7 +7,7 @@ export async function analyzeAgriculturalImage(base64: string) {
   try {
     const base64String = base64.includes(',') ? base64.split(',')[1] : base64;
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       contents: [{
         role: "user",
         parts: [
@@ -30,7 +30,7 @@ export async function chatWithExpert(
 ) {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       contents: [
         ...history,
         { role: "user", parts: [{ text: userMessage }] }
