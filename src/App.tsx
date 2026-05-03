@@ -167,21 +167,37 @@ export default function App() {
   useEffect(() => {
     const fetchWeather = async (lat: number, lon: number) => {
       try {
-        const [weatherRes, geoRes] = await Promise.all([
-          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto`),
-          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-        ]);
-        const weatherData = await weatherRes.json();
-        const geoData = await geoRes.json();
+        // Fetch weather and location separately to handle failures gracefully
+        let weatherData = null;
+        try {
+          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto`);
+          if (!weatherRes.ok) throw new Error("Weather API status: " + weatherRes.status);
+          weatherData = await weatherRes.json();
+        } catch (e) {
+          console.error("Meteo fetch failed:", e);
+        }
+
+        let geoData = null;
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+          if (geoRes.ok) geoData = await geoRes.json();
+        } catch (e) {
+          console.error("Nominatim fetch failed:", e);
+        }
         
-        const city = geoData.address?.city || geoData.address?.town || 
-                     geoData.address?.village || geoData.address?.county || 'Aap ki Location';
+        if (!weatherData) {
+          setWeatherLoading(false);
+          return;
+        }
+
+        const city = geoData?.address?.city || geoData?.address?.town || 
+                     geoData?.address?.village || geoData?.address?.county || 'Aap ki Location';
         const code = weatherData.current.weather_code;
         
         const getCondition = (c: number) => {
           if (c === 0) return { en: 'Clear Sky', ur: 'صاف آسمان', icon: '☀️' };
           if (c <= 2) return { en: 'Partly Cloudy', ur: 'جزوی بادل', icon: '⛅' };
-          if (c <= 3) return { en: 'Overcast', ur: '흐림', icon: '☁️' };
+          if (c <= 3) return { en: 'Overcast', ur: 'بادلوں والا', icon: '☁️' };
           if (c <= 48) return { en: 'Foggy', ur: 'دھند', icon: '🌫️' };
           if (c <= 57) return { en: 'Drizzle', ur: 'بوندا باندی', icon: '🌦️' };
           if (c <= 67) return { en: 'Rainy', ur: 'بارش', icon: '🌧️' };
@@ -202,7 +218,7 @@ export default function App() {
           icon: cond.icon,
         });
       } catch (err) {
-        console.error("Weather API error:", err);
+        console.error("Weather processing error:", err);
       } finally {
         setWeatherLoading(false);
       }
@@ -339,6 +355,11 @@ export default function App() {
   const cleanText = (t: string) => {
     if (!t) return "";
     return t
+      .replace(/CROP:.*?\n/gi, '')
+      .replace(/HEALTH:.*?\n/gi, '')
+      .replace(/MOISTURE:.*?\n/gi, '')
+      .replace(/DISEASE:.*?\n/gi, '')
+      .replace(/ACTION:.*?\n/gi, '')
       .replace(/#{1,6}\s?/g,'')
       .replace(/\*\*(.*?)\*\*/g,'$1')
       .replace(/\*(.*?)\*/g,'$1')
@@ -349,23 +370,61 @@ export default function App() {
 
   // Stats Parsing
   const parseStats = (text: string) => {
+    const lines = text.split('\n');
     const lower = text.toLowerCase();
-    const cropMatch = text.match(/(?:wheat|gandum|rice|chawal|cotton|kapas|maize|corn|makka|sugarcane)/i);
-    const cropType = cropMatch ? cropMatch[0].charAt(0).toUpperCase() + cropMatch[0].slice(1) : 'Unknown';
     
-    const isHealthy = lower.includes('healthy') || lower.includes('sehatmand') || lower.includes('good') || lower.includes('achi');
-    const hasDisease = lower.includes('disease') || lower.includes('bimari') || lower.includes('rust') || lower.includes('damaged');
-    const healthPct = hasDisease ? Math.floor(Math.random()*20)+45 : Math.floor(Math.random()*12)+82;
-    
-    const isDry = lower.includes('dry') || lower.includes('khushk');
-    const isWet = lower.includes('wet') || lower.includes('overwater') || lower.includes('flood');
-    const moisture = isDry ? 'Dry / Khushk' : isWet ? 'High / Zyada' : 'Optimal / Theek';
-    
-    const needsHarvest = lower.includes('harvest') || lower.includes('katai');
-    const needsTreatment = hasDisease;
-    const action = needsTreatment ? 'Treat Now / Ilaaj Karen' : needsHarvest ? 'Harvest Soon / Katai Karen' : 'Monitor / Nazar Rakhen';
-    
-    return { cropType, healthPct, moisture, action, isHealthy: !hasDisease };
+    let cropType = '';
+    let healthPct = 0;
+    let moisture = '';
+    let action = '';
+    let isHealthy = !lower.includes('disease');
+
+    // Try structured parsing first
+    const findField = (key: string) => {
+      const line = lines.find(l => l.toUpperCase().startsWith(key));
+      return line ? line.split(':')[1]?.trim() : null;
+    };
+
+    const sCrop = findField('CROP:');
+    const sHealth = findField('HEALTH:');
+    const sMoisture = findField('MOISTURE:');
+    const sDisease = findField('DISEASE:');
+    const sAction = findField('ACTION:');
+
+    if (sCrop) cropType = sCrop;
+    if (sHealth) healthPct = parseInt(sHealth) || 0;
+    if (sMoisture) {
+      const m = sMoisture.toLowerCase();
+      moisture = m.includes('dry') ? 'Dry / Khushk' : m.includes('wet') ? 'High / Zyada' : 'Optimal / Theek';
+    }
+    if (sDisease) isHealthy = sDisease.toLowerCase().includes('no');
+    if (sAction) action = sAction;
+
+    // Fallback or incomplete structured data
+    if (!cropType) {
+      const cropMatch = text.match(/(?:wheat|gandum|rice|chawal|cotton|kapas|maize|corn|makka|sugarcane)/i);
+      cropType = cropMatch ? cropMatch[0].charAt(0).toUpperCase() + cropMatch[0].slice(1) : 'Unknown';
+    }
+
+    if (healthPct === 0) {
+      const hasDisease = lower.includes('disease') || lower.includes('bimari') || lower.includes('rust') || lower.includes('damaged');
+      healthPct = hasDisease ? Math.floor(Math.random()*20)+45 : Math.floor(Math.random()*12)+82;
+      isHealthy = !hasDisease;
+    }
+
+    if (!moisture) {
+      const isDry = lower.includes('dry') || lower.includes('khushk');
+      const isWet = lower.includes('wet') || lower.includes('overwater') || lower.includes('flood');
+      moisture = isDry ? 'Dry / Khushk' : isWet ? 'High / Zyada' : 'Optimal / Theek';
+    }
+
+    if (!action) {
+      const needsHarvest = lower.includes('harvest') || lower.includes('katai');
+      const hasDisease = lower.includes('disease') || lower.includes('bimari');
+      action = hasDisease ? 'Treat Now / Ilaaj Karen' : needsHarvest ? 'Harvest Soon / Katai Karen' : 'Monitor / Nazar Rakhen';
+    }
+
+    return { cropType, healthPct, moisture, action, isHealthy };
   };
 
   const currentStats = useMemo(() => parseStats(analysisResult), [analysisResult]);
