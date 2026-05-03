@@ -1,8 +1,9 @@
 FROM node:20 AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --no-cache
 COPY . .
+RUN echo "export const BUILD_TIME = '$(date)';" > src/buildtime.ts
 RUN npm run build
 
 FROM nginx:alpine
